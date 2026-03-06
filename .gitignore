@@ -11,3 +11,6 @@ wheels/
 
 # Environment / secrets
 .env
+
+# Project-specific Claude instructions
+CLAUDE.md

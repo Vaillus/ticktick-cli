@@ -1,7 +1,7 @@
 [project]
-name = "tt-ticktick"
+name = "ticktick-cli"
 version = "0.1.0"
-description = "Lightweight TickTick CLI for Claude Code"
+description = "Lightweight TickTick CLI"
 authors = [
     { name = "Vaillus", email = "hugovaillaud@gmail.com" }
 ]
