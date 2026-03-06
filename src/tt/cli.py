@@ -211,6 +211,25 @@ def search(keyword, project):
 
 
 @cli.command()
+def tags():
+    """List all tags used across tasks."""
+    from tt.api import TickTickClient
+
+    client = TickTickClient()
+    tasks = client.get_all_tasks()
+    all_tags: set[str] = set()
+    for t in tasks:
+        all_tags.update(t.tags)
+
+    if not all_tags:
+        click.echo("No tags found.")
+        return
+
+    for tag in sorted(all_tags):
+        click.echo(tag)
+
+
+@cli.command()
 @click.option(
     "--due",
     type=click.Choice(["today", "yesterday", "week", "all"], case_sensitive=False),
