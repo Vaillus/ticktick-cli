@@ -29,14 +29,28 @@ def cli(ctx, debug):
 
 @cli.command()
 @click.option("--status", is_flag=True, help="Check if token is valid")
-def auth(status):
-    """Authenticate with TickTick (OAuth2)."""
+@click.option("--cookie", is_flag=True, help="Set up cookie auth for private API (completed tasks)")
+def auth(status, cookie):
+    """Authenticate with TickTick (OAuth2 or cookie)."""
     if status:
         from tt.api import TickTickClient
 
         client = TickTickClient()
         client.get_projects()
         click.echo("Authenticated")
+        return
+
+    if cookie:
+        from tt.auth import login_for_cookie
+        from tt.config import save_cookie, save_token
+
+        username = click.prompt("TickTick username (email)")
+        password = click.prompt("TickTick password", hide_input=True)
+        session_cookie = login_for_cookie(username, password)
+        save_token("TICKTICK_USERNAME", username)
+        save_token("TICKTICK_PASSWORD", password)
+        save_cookie(session_cookie)
+        click.echo("Cookie auth configured.")
         return
 
     from tt.auth import run_oauth_flow
@@ -197,22 +211,63 @@ def search(keyword, project):
 
 
 @cli.command()
-def tags():
-    """List all tags used across tasks."""
+@click.option(
+    "--due",
+    type=click.Choice(["today", "yesterday", "week", "all"], case_sensitive=False),
+    default="today",
+    help="Time range (default: today)",
+)
+@click.option("--from", "from_date", help="Start date (YYYY-MM-DD)")
+@click.option("--to", "to_date", help="End date (YYYY-MM-DD)")
+@click.option("--json", "as_json", is_flag=True, help="JSON output")
+@click.option("--verbose", "-v", is_flag=True, help="Verbose output")
+def completed(due, from_date, to_date, as_json, verbose):
+    """List completed tasks."""
+    from datetime import datetime, timedelta, timezone
+
     from tt.api import TickTickClient
+    from tt.formatters import format_compact, format_json, format_verbose
 
     client = TickTickClient()
-    tasks = client.get_all_tasks()
-    all_tags: set[str] = set()
-    for t in tasks:
-        all_tags.update(t.tags)
+    tasks = client.get_completed_tasks()
 
-    if not all_tags:
-        click.echo("No tags found.")
-        return
+    now = datetime.now(timezone.utc)
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    for tag in sorted(all_tags):
-        click.echo(tag)
+    if from_date or to_date:
+        try:
+            from_dt = datetime.strptime(from_date, "%Y-%m-%d").replace(tzinfo=timezone.utc) if from_date else None
+            to_dt = datetime.strptime(to_date, "%Y-%m-%d").replace(tzinfo=timezone.utc) + timedelta(days=1) if to_date else None
+        except ValueError:
+            raise click.ClickException("Invalid date format. Use YYYY-MM-DD.")
+        tasks = [
+            t for t in tasks
+            if t.completed_time
+            and (from_dt is None or t.completed_time >= from_dt)
+            and (to_dt is None or t.completed_time < to_dt)
+        ]
+    elif due != "all":
+        if due == "yesterday":
+            from_dt = today - timedelta(days=1)
+            to_dt = today
+        elif due == "week":
+            from_dt = today - timedelta(days=7)
+            to_dt = now
+        else:  # today
+            from_dt = today
+            to_dt = now
+
+        tasks = [
+            t for t in tasks
+            if t.completed_time and from_dt <= t.completed_time <= to_dt
+        ]
+
+    if as_json:
+        click.echo(format_json(tasks))
+    elif verbose:
+        click.echo(format_verbose(tasks))
+    else:
+        click.echo(format_compact(tasks))
 
 
 def _parse_due(due_str: str | None) -> str | None:

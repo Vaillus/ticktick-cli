@@ -66,3 +66,22 @@ def get_inbox_id() -> str | None:
 
 def save_inbox_id(inbox_id: str) -> None:
     save_token("TICKTICK_INBOX_ID", inbox_id)
+
+
+def get_username() -> str | None:
+    config = load_config()
+    return config.get("TICKTICK_USERNAME") or None
+
+
+def get_password() -> str | None:
+    config = load_config()
+    return config.get("TICKTICK_PASSWORD") or None
+
+
+def get_cookie() -> str | None:
+    config = load_config()
+    return config.get("TICKTICK_COOKIE") or None
+
+
+def save_cookie(value: str) -> None:
+    save_token("TICKTICK_COOKIE", value)

@@ -27,6 +27,7 @@ class Task:
     content: str = ""
     tags: list[str] = field(default_factory=list)
     status: int = 0
+    completed_time: datetime | None = None
 
     @property
     def short_id(self) -> str:
@@ -45,6 +46,13 @@ class Task:
                 due = datetime.fromisoformat(due_str.replace("+0000", "+00:00"))
             except ValueError:
                 pass
+        completed = None
+        completed_str = data.get("completedTime")
+        if completed_str:
+            try:
+                completed = datetime.fromisoformat(completed_str.replace("+0000", "+00:00"))
+            except ValueError:
+                pass
         return cls(
             id=data["id"],
             title=data.get("title", ""),
@@ -55,4 +63,5 @@ class Task:
             content=data.get("content", ""),
             tags=data.get("tags", []) or [],
             status=data.get("status", 0),
+            completed_time=completed,
         )

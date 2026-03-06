@@ -5,12 +5,17 @@ import requests
 from tt.config import (
     get_access_token,
     get_client_credentials,
+    get_cookie,
+    get_password,
     get_refresh_token,
+    get_username,
+    save_cookie,
     save_tokens,
 )
 from tt.models import Project, Task
 
 BASE_URL = "https://api.ticktick.com/open/v1"
+V2_BASE_URL = "https://api.ticktick.com/api/v2"
 
 
 class TickTickClient:
@@ -130,3 +135,63 @@ class TickTickClient:
 
     def delete_task(self, project_id: str, task_id: str) -> None:
         self._request("DELETE", f"/project/{project_id}/task/{task_id}")
+
+    # --- v2 private API (cookie-based) ---
+
+    def _v2_request(
+        self, method: str, endpoint: str, **kwargs: Any
+    ) -> Any:
+        from tt.auth import _v2_headers
+
+        url = f"{V2_BASE_URL}{endpoint}"
+        headers = _v2_headers()
+        cookie = get_cookie()
+
+        if cookie:
+            resp = requests.request(
+                method, url, cookies={"t": cookie}, headers=headers, **kwargs
+            )
+            if resp.status_code != 401:
+                resp.raise_for_status()
+                if resp.status_code == 204 or not resp.content:
+                    return None
+                return resp.json()
+
+        # Need to (re-)authenticate
+        username = get_username()
+        password = get_password()
+        if not username or not password:
+            from tt.config import ConfigError
+
+            raise ConfigError(
+                "Cookie auth requires TICKTICK_USERNAME and TICKTICK_PASSWORD.\n"
+                "Run 'tt auth --cookie' first."
+            )
+
+        from tt.auth import login_for_cookie
+
+        cookie = login_for_cookie(username, password)
+        save_cookie(cookie)
+
+        resp = requests.request(
+            method, url, cookies={"t": cookie}, headers=headers, **kwargs
+        )
+        resp.raise_for_status()
+        if resp.status_code == 204 or not resp.content:
+            return None
+        return resp.json()
+
+    def get_completed_tasks(
+        self,
+        from_date: Optional[str] = None,
+        to_date: Optional[str] = None,
+    ) -> list[Task]:
+        params: dict[str, str | int] = {"limit": 100}
+        if from_date:
+            params["from"] = from_date
+        if to_date:
+            params["to"] = to_date
+        data = self._v2_request("GET", "/project/all/completed", params=params)
+        if not data:
+            return []
+        return [Task.from_api(t) for t in data]

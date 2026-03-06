@@ -85,6 +85,40 @@ def refresh_access_token(refresh_token: str, client_id: str, client_secret: str)
     return resp.json()
 
 
+SIGNON_URL = "https://api.ticktick.com/api/v2/user/signon"
+
+V2_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:145.0) Gecko/20100101 Firefox/145.0",
+    "X-Device": '{{"platform":"web","version":6430,"id":"{device_id}"}}',
+}
+
+
+def _v2_headers() -> dict[str, str]:
+    device_id = secrets.token_hex(12)
+    return {
+        k: v.format(device_id=device_id) for k, v in V2_HEADERS.items()
+    }
+
+
+def login_for_cookie(username: str, password: str) -> str:
+    resp = requests.post(
+        SIGNON_URL,
+        params={"wc": "true", "remember": "true"},
+        json={"username": username, "password": password},
+        headers=_v2_headers(),
+    )
+    resp.raise_for_status()
+    cookie = resp.cookies.get("t")
+    if not cookie:
+        # Some responses return the token in the JSON body instead
+        token = resp.json().get("token")
+        if token:
+            cookie = token
+        else:
+            raise RuntimeError("Login succeeded but no session cookie found.")
+    return cookie
+
+
 def run_oauth_flow() -> None:
     client_id, client_secret = get_client_credentials()
     csrf_state = secrets.token_urlsafe(32)
