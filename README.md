@@ -7,7 +7,7 @@ A minimal command-line interface for [TickTick](https://ticktick.com).
 Requires [uv](https://github.com/astral-sh/uv).
 
 ```bash
-git clone https://github.com/hugovaillaud/tt
+git clone https://github.com/hugovaillaud/ticktick-cli
 cd tt
 uv run python -m tt --help
 ```
