@@ -8,7 +8,7 @@ Requires [uv](https://github.com/astral-sh/uv).
 
 ```bash
 git clone https://github.com/hugovaillaud/ticktick-cli
-cd tt
+cd ticktick-cli
 uv run python -m tt --help
 ```
 
